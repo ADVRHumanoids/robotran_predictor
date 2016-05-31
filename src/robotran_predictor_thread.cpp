@@ -17,6 +17,10 @@ robotran_predictor_thread::robotran_predictor_thread( std::string module_prefix,
 
 bool robotran_predictor_thread::custom_init()
 {
+    // Get mbs file
+    yarp::os::ConstString mbs = get_resource_finder().find("mbs_file").asString();
+    std::cout << "mbs file used is " << mbs << std::endl;
+
     return true;
 }
 
