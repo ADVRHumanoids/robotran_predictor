@@ -3,6 +3,10 @@
 #include "robotran_predictor_thread.h"
 #include "robotran_predictor_constants.h"
 
+#include <mbs_load_xml.h>
+#include <mbs_part.h>
+#include <mbs_dirdyn.h>
+
 robotran_predictor_thread::robotran_predictor_thread( std::string module_prefix, 
                                                       yarp::os::ResourceFinder rf, 
                                                       std::shared_ptr< paramHelp::ParamHelperServer > ph) :
@@ -20,6 +24,25 @@ bool robotran_predictor_thread::custom_init()
     // Get mbs file
     yarp::os::ConstString mbs = get_resource_finder().find("mbs_file").asString();
     std::cout << "mbs file used is " << mbs << std::endl;
+
+    // Load mbs file
+    mbs_data = mbs_load(mbs.c_str());
+
+    // coordinate partitioning
+    MbsPart *mbs_part;
+
+    mbs_part = mbs_new_part(mbs_data);
+    mbs_part->options->rowperm=1;
+    mbs_part->options->verbose = 1;
+    mbs_run_part(mbs_part, mbs_data);
+    mbs_delete_part(mbs_part);
+
+    // set direct dynamics options
+    mbs_dirdyn = mbs_new_dirdyn(mbs_data);
+
+    // dirdyn options (see documentations for additional options)
+    mbs_dirdyn->options->dt0 = 5e-4;
+    mbs_dirdyn->options->tf  = 10.0;
 
     return true;
 }

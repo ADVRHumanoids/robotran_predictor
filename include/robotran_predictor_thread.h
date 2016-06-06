@@ -6,6 +6,8 @@
 
 #include <drc_shared/yarp_msgs/robotran_predictor_msg.h>
 
+#include <mbs_data.h>
+
 /**
  * @brief robotran_predictor control thread
  * 
@@ -18,6 +20,9 @@ private:
     walkman::internal_yarp_command_sender_interface<robotran_predictor::prediction> prediction;
     
     robotran_predictor::state_input actual_state;
+
+    MbsData* mbs_data;
+    MbsDirdyn *mbs_dirdyn;
     
 public:
     

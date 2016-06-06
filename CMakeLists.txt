@@ -63,4 +63,15 @@ TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${iDynTree_LIBRARIES}
 
 add_subdirectory(app)
 
+#####################
+# Robotran Library
+#####################
+
+FIND_PACKAGE(LibRobotranC REQUIRED )
+
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${LIB_MBSYSC_MODULES} ${LIB_MBSYSC_LOAD} ${LIB_MBSYSC_UTILITIES})
+
+INCLUDE_DIRECTORIES(include ${LIB_MBSYSC_INCLUDE_DIRS})
+
+
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
