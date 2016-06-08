@@ -47,6 +47,12 @@ bool robotran_predictor_thread::custom_init()
     return true;
 }
 
+void robotran_predictor_thread::custom_release()
+{
+    return true;
+}
+
+
 void robotran_predictor_thread::run()
 {   
     int seq_num = 0;

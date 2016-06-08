@@ -44,6 +44,13 @@ public:
     virtual bool custom_init();
     
     /**
+     * @brief robotran_predictor control thread close function
+     * 
+     * @return true on succes, false otherwise
+     */
+    void custom_release();
+    
+    /**
      * @brief robotran_predictor control thread main loop
      * 
      */
