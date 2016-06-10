@@ -46,7 +46,6 @@ public:
     /**
      * @brief robotran_predictor control thread close function
      * 
-     * @return true on succes, false otherwise
      */
     void custom_release();
     

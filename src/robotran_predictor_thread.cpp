@@ -49,7 +49,7 @@ bool robotran_predictor_thread::custom_init()
 
 void robotran_predictor_thread::custom_release()
 {
-    return true;
+    //return true;
 }
 
 
