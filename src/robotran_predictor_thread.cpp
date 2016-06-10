@@ -49,6 +49,9 @@ bool robotran_predictor_thread::custom_init()
 
 void robotran_predictor_thread::custom_release()
 {
+    mbs_delete_dirdyn(mbs_dirdyn, mbs_data);
+
+    mbs_delete_data(mbs_data);
     //return true;
 }
 
