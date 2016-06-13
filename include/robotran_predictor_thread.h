@@ -54,6 +54,12 @@ public:
      * 
      */
     virtual void run();
+
+    /**
+     * @brief robotran_predictor reset state of the robotran mbs model
+     *
+     */
+    void reset_model_state();
     
 };
 
