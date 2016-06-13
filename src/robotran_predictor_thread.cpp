@@ -11,6 +11,7 @@
 #include "robotran_ActuatorsDefinitions.h"
 
 #include "user_IO.h"
+#include "PIDs_Struct.h"
 
 robotran_predictor_thread::robotran_predictor_thread( std::string module_prefix, 
                                                       yarp::os::ResourceFinder rf, 
@@ -49,9 +50,15 @@ bool robotran_predictor_thread::custom_init()
     mbs_dirdyn->options->dt0 = 5e-4;
     mbs_dirdyn->options->tf  = 0.5;
     mbs_dirdyn->options->save2file = 0;
-    //mbs_dirdyn->options->realtime = 1;
+    mbs_dirdyn->options->realtime = 1;
 
     mbs_dirdyn_init(mbs_dirdyn, mbs_data);
+
+    // set initial state
+    int seq_num = 0;
+    if(state_input.getCommand(actual_state, seq_num)) {
+        reset_model_state();
+    }
 
     return true;
 }
@@ -75,20 +82,217 @@ void robotran_predictor_thread::run()
     }
 
     // reset the state
-    reset_model_state();
+    if(mbs_dirdyn->options->tf > 2)
+        reset_model_state();
 
     // run the simulation
-    mbs_dirdyn->options->tf += 0.001;  // arbitrary period of computation
+    mbs_dirdyn->options->tf += 0.005;  // arbitrary period of computation
     mbs_dirdyn_loop(mbs_dirdyn, mbs_data);
+
+
 
 }
 
 void robotran_predictor_thread::reset_model_state()
 {
 
-    // right arm
+    // floating base
+    mbs_data->q[T1_id] = 0.;
+    mbs_data->q[T2_id] = 0.;
+    mbs_data->q[T3_id] = 1.11;
+    mbs_data->q[R1_id] = 0.;
+    mbs_data->q[R2_id] = 0.;
+    mbs_data->q[R3_id] = 0.;
 
-    // TODO: add shift in joint, motor
+    mbs_data->qd[T1_id] = 0.;
+    mbs_data->qd[T2_id] = 0.;
+    mbs_data->qd[T3_id] = 0.;
+    mbs_data->qd[R1_id] = 0.;
+    mbs_data->qd[R2_id] = 0.;
+    mbs_data->qd[R3_id] = 0.;
+
+    //left leg
+
+    // joint position
+    mbs_data->q[LHipLat_id]  = actual_state.link_pos[0];
+    mbs_data->q[LHipYaw_id]  = actual_state.link_pos[1];
+    mbs_data->q[LHipSag_id]  = actual_state.link_pos[2];
+    mbs_data->q[LKneeSag_id] = actual_state.link_pos[3];
+    mbs_data->q[LAnkSag_id]  = actual_state.link_pos[4];
+    mbs_data->q[LAnkLat_id]  = actual_state.link_pos[5];
+
+    // joint velocity
+    mbs_data->qd[LHipLat_id]  = actual_state.link_vel[0];
+    mbs_data->qd[LHipYaw_id]  = actual_state.link_vel[1];
+    mbs_data->qd[LHipSag_id]  = actual_state.link_vel[2];
+    mbs_data->qd[LKneeSag_id] = actual_state.link_vel[3];
+    mbs_data->qd[LAnkSag_id]  = actual_state.link_vel[4];
+    mbs_data->qd[LAnkLat_id]  = actual_state.link_vel[5];
+
+    // motor position
+    mbs_data->ux[L_HIP_LAT_MOT  +1]   = actual_state.motor_pos[0];
+    mbs_data->ux[L_HIP_TRANS_MOT+1]   = actual_state.motor_pos[1];
+    mbs_data->ux[L_HIP_SAG_MOT  +1]   = actual_state.motor_pos[2];
+    mbs_data->ux[L_KNEE_SAG_MOT +1]   = actual_state.motor_pos[3];
+    mbs_data->ux[L_ANK_SAG_MOT  +1]   = actual_state.motor_pos[4];
+    mbs_data->ux[L_ANK_LAT_MOT  +1]   = actual_state.motor_pos[5];
+
+    // motor velocity
+    mbs_data->ux[L_HIP_LAT_MOT  +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[0];
+    mbs_data->ux[L_HIP_TRANS_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[1];
+    mbs_data->ux[L_HIP_SAG_MOT  +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[2];
+    mbs_data->ux[L_KNEE_SAG_MOT +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[3];
+    mbs_data->ux[L_ANK_SAG_MOT  +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[4];
+    mbs_data->ux[L_ANK_LAT_MOT  +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[5];
+
+    // cheat to cancel joint control effect (should be replaced by an update of the ref from Yarp)
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_HIP_LAT_MOT  +1] = mbs_data->q[LHipLat_id]   ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_HIP_TRANS_MOT+1] = mbs_data->q[LHipYaw_id]   ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_HIP_SAG_MOT  +1] = mbs_data->q[LHipSag_id]   ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_KNEE_SAG_MOT +1] = mbs_data->q[LKneeSag_id]  ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_ANK_SAG_MOT  +1] = mbs_data->q[LAnkSag_id]   ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_ANK_LAT_MOT  +1] = mbs_data->q[LAnkLat_id]   ;
+
+    //right leg
+
+    // joint position
+    mbs_data->q[RHipLat_id]  = actual_state.link_pos[6];
+    mbs_data->q[RHipYaw_id]  = actual_state.link_pos[7];
+    mbs_data->q[RHipSag_id]  = actual_state.link_pos[8];
+    mbs_data->q[RKneeSag_id] = actual_state.link_pos[9];
+    mbs_data->q[RAnkSag_id]  = actual_state.link_pos[10];
+    mbs_data->q[RAnkLat_id]  = actual_state.link_pos[11];
+
+    // joint velocity
+    mbs_data->qd[RHipLat_id]  = actual_state.link_vel[6];
+    mbs_data->qd[RHipYaw_id]  = actual_state.link_vel[7];
+    mbs_data->qd[RHipSag_id]  = actual_state.link_vel[8];
+    mbs_data->qd[RKneeSag_id] = actual_state.link_vel[9];
+    mbs_data->qd[RAnkSag_id]  = actual_state.link_vel[10];
+    mbs_data->qd[RAnkLat_id]  = actual_state.link_vel[11];
+
+    // motor position
+    mbs_data->ux[R_HIP_LAT_MOT  +1]   = actual_state.motor_pos[6];
+    mbs_data->ux[R_HIP_TRANS_MOT+1]   = actual_state.motor_pos[7];
+    mbs_data->ux[R_HIP_SAG_MOT  +1]   = actual_state.motor_pos[8];
+    mbs_data->ux[R_KNEE_SAG_MOT +1]   = actual_state.motor_pos[9];
+    mbs_data->ux[R_ANK_SAG_MOT  +1]   = actual_state.motor_pos[10];
+    mbs_data->ux[R_ANK_LAT_MOT  +1]   = actual_state.motor_pos[11];
+
+    // motor velocity
+    mbs_data->ux[R_HIP_LAT_MOT  +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[6];
+    mbs_data->ux[R_HIP_TRANS_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[7];
+    mbs_data->ux[R_HIP_SAG_MOT  +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[8];
+    mbs_data->ux[R_KNEE_SAG_MOT +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[9];
+    mbs_data->ux[R_ANK_SAG_MOT  +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[10];
+    mbs_data->ux[R_ANK_LAT_MOT  +COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[11];
+
+    // cheat to cancel joint control effect (should be replaced by an update of the ref from Yarp)
+    mbs_data->user_IO->cvs->Outputs->q_ref[R_HIP_LAT_MOT  +1] = mbs_data->q[RHipLat_id]  ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[R_HIP_TRANS_MOT+1] = mbs_data->q[RHipYaw_id]  ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[R_HIP_SAG_MOT  +1] = mbs_data->q[RHipSag_id]  ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[R_KNEE_SAG_MOT +1] = mbs_data->q[RKneeSag_id] ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[R_ANK_SAG_MOT  +1] = mbs_data->q[RAnkSag_id]  ;
+    mbs_data->user_IO->cvs->Outputs->q_ref[R_ANK_LAT_MOT  +1] = mbs_data->q[RAnkLat_id]  ;
+
+
+    //torso
+
+    // joint position
+    mbs_data->q[WaistLat_id] = actual_state.link_pos[12];
+    mbs_data->q[WaistSag_id] = actual_state.link_pos[13]*(-1) + 0.453786;
+    mbs_data->q[WaistYaw_id] = actual_state.link_pos[14];
+
+    // joint velocity
+    mbs_data->qd[WaistLat_id] = actual_state.link_vel[12];
+    mbs_data->qd[WaistSag_id] = actual_state.link_vel[13]*(-1);
+    mbs_data->qd[WaistYaw_id] = actual_state.link_vel[14];
+
+    // motor position
+    mbs_data->ux[WAIST_LAT_MOT+1]   = actual_state.motor_pos[12];
+    mbs_data->ux[WAIST_SAG_MOT+1]   = actual_state.motor_pos[13]*(-1) + 0.453786;
+    mbs_data->ux[WAIST_TRANS_MOT+1] = actual_state.motor_pos[14];
+
+    // motor velocity
+    mbs_data->ux[WAIST_LAT_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[12];
+    mbs_data->ux[WAIST_SAG_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[13]*(-1);
+    mbs_data->ux[WAIST_TRANS_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[14];
+
+    // cheat to cancel joint control effect (should be replaced by an update of the ref from Yarp)
+    mbs_data->user_IO->cvs->Outputs->q_ref[WAIST_LAT_MOT+1] = mbs_data->q[WaistLat_id];
+    mbs_data->user_IO->cvs->Outputs->q_ref[WAIST_SAG_MOT+1] = mbs_data->q[WaistSag_id];
+    mbs_data->user_IO->cvs->Outputs->q_ref[WAIST_TRANS_MOT+1] = mbs_data->q[WaistYaw_id];
+
+    // left arm
+
+    // joint position
+    mbs_data->q[LShSag_id] = actual_state.link_pos[15] - 0.349066;
+    mbs_data->q[LShLat_id] = actual_state.link_pos[16] - 0.715585;
+    mbs_data->q[LShYaw_id] = actual_state.link_pos[17];
+    mbs_data->q[LElbj_id] = actual_state.link_pos[18];
+    mbs_data->q[LForearmPlate_id] = actual_state.link_pos[19];
+    mbs_data->q[LWrj1_id] = actual_state.link_pos[20];
+    mbs_data->q[LWrj2_id] = actual_state.link_pos[21];
+
+    // joint velocity
+    mbs_data->qd[LShSag_id] = actual_state.link_vel[15];
+    mbs_data->qd[LShLat_id] = actual_state.link_vel[16];
+    mbs_data->qd[LShYaw_id] = actual_state.link_vel[17];
+    mbs_data->qd[LElbj_id] = actual_state.link_vel[18];
+    mbs_data->qd[LForearmPlate_id] = actual_state.link_vel[19];
+    mbs_data->qd[LWrj1_id] = actual_state.link_vel[20];
+    mbs_data->qd[LWrj2_id] = actual_state.link_vel[21];
+
+    // motor position
+    mbs_data->ux[L_SH_SAG_MOT+1] = actual_state.motor_pos[15] - 0.349066;
+    mbs_data->ux[L_SH_LAT_MOT+1] = actual_state.motor_pos[16] - 0.715585 ;
+    mbs_data->ux[L_SH_TRANS_MOT+1] = actual_state.motor_pos[17];
+    mbs_data->ux[L_ELB_MOT+1] = actual_state.motor_pos[18];
+    mbs_data->ux[L_FORE_ARM_PLATE_MOT+1] = actual_state.motor_pos[19];
+    mbs_data->ux[L_WRJ1_MOT+1] = actual_state.motor_pos[20];
+    mbs_data->ux[L_WRJ2_MOT+1] = actual_state.motor_pos[21];
+
+    // motor velocity
+    mbs_data->ux[L_SH_SAG_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[15];
+    mbs_data->ux[L_SH_LAT_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[16];
+    mbs_data->ux[L_SH_TRANS_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[17];
+    mbs_data->ux[L_ELB_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[18];
+    mbs_data->ux[L_FORE_ARM_PLATE_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[19];
+    mbs_data->ux[L_WRJ1_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[20];
+    mbs_data->ux[L_WRJ2_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[21];
+
+    // cheat to cancel joint control effect (should be replaced by an update of the ref from Yarp)
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_SH_SAG_MOT+1] = mbs_data->q[LShSag_id];
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_SH_LAT_MOT+1] = mbs_data->q[LShLat_id];
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_SH_TRANS_MOT+1] = mbs_data->q[LShYaw_id];
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_ELB_MOT+1] = mbs_data->q[LElbj_id];
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_FORE_ARM_PLATE_MOT+1] = mbs_data->q[LForearmPlate_id];
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_WRJ1_MOT+1] = mbs_data->q[LWrj1_id];
+    mbs_data->user_IO->cvs->Outputs->q_ref[L_WRJ2_MOT+1] = mbs_data->q[LWrj2_id];
+
+    // head
+
+    // joint position
+    mbs_data->q[NeckYawj_id] = actual_state.link_pos[22];
+    mbs_data->q[NeckPitchj_id] = actual_state.link_pos[23];
+
+    // joint velocity
+    mbs_data->qd[NeckYawj_id] = actual_state.link_vel[22];
+    mbs_data->qd[NeckPitchj_id] = actual_state.link_vel[23];
+
+    // motor position
+    mbs_data->ux[NECK_YAW_MOT+1] = actual_state.motor_pos[22];
+    mbs_data->ux[NECK_PITCH_MOT+1] = actual_state.motor_pos[23];
+
+    // motor velocity
+    mbs_data->ux[NECK_YAW_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[22];
+    mbs_data->ux[NECK_PITCH_MOT+COMAN_NB_JOINT_ACTUATED+1] = actual_state.motor_vel[23];
+
+    // cheat to cancel joint control effect (should be replaced by an update of the ref from Yarp)
+    mbs_data->user_IO->cvs->Outputs->q_ref[NECK_YAW_MOT+1] = mbs_data->q[NeckYawj_id];
+    mbs_data->user_IO->cvs->Outputs->q_ref[NECK_PITCH_MOT+1] = mbs_data->q[NeckPitchj_id];
+
+    // right arm
 
     // joint position
     mbs_data->q[RShSag_id] = actual_state.link_pos[24] - 0.349066;
@@ -134,5 +338,19 @@ void robotran_predictor_thread::reset_model_state()
     mbs_data->user_IO->cvs->Outputs->q_ref[R_FORE_ARM_PLATE_MOT+1] = mbs_data->q[RForearmPlate_id];
     mbs_data->user_IO->cvs->Outputs->q_ref[R_WRJ1_MOT+1] = mbs_data->q[RWrj1_id];
     mbs_data->user_IO->cvs->Outputs->q_ref[R_WRJ2_MOT+1] = mbs_data->q[RWrj2_id];
+
+    //for (int i=0; i<COMAN_NB_JOINT_ACTUATED; i++)
+        //mbs_data->user_IO->PIDs_pos->int_err[i+1] + 0.;
+
+    // Update state variables
+    for(int i=1;i<=mbs_data->nqu;i++)
+    {
+        mbs_dirdyn->y[i-1] = mbs_data->q[mbs_data->qu[i]];
+        mbs_dirdyn->y[i+mbs_data->nqu-1] = mbs_data->qd[mbs_data->qu[i]];
+    }
+    for(int i=1;i<=mbs_data->Nux;i++)
+    {
+        mbs_dirdyn->y[i+2*mbs_data->nqu-1] = mbs_data->ux[i];
+    }
 
 }
