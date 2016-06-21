@@ -20,6 +20,7 @@ private:
     walkman::internal_yarp_command_sender_interface<robotran_predictor::prediction> prediction;
     
     robotran_predictor::state_input actual_state;
+    robotran_predictor::request     actual_request;
 
     MbsData* mbs_data;
     MbsDirdyn *mbs_dirdyn;

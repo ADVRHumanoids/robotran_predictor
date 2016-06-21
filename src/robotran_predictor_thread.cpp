@@ -78,7 +78,11 @@ void robotran_predictor_thread::run()
 {   
     int seq_num = 0;
     if(state_input.getCommand(actual_state, seq_num)) {
-        actual_state.print();
+        //actual_state.print();
+    }
+
+    if(request.getCommand(actual_request, seq_num)) {
+        std::cout << "request status = " << actual_request.process_request << std::endl;
     }
 
     // reset the state
