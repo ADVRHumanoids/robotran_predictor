@@ -50,7 +50,7 @@ bool robotran_predictor_thread::custom_init()
     mbs_dirdyn->options->dt0 = 5e-4;
     mbs_dirdyn->options->tf  = 0.5;
     mbs_dirdyn->options->save2file = 0;
-    mbs_dirdyn->options->realtime = 1;
+    mbs_dirdyn->options->realtime = 0;
 
     mbs_dirdyn_init(mbs_dirdyn, mbs_data);
 
@@ -121,7 +121,7 @@ void robotran_predictor_thread::run()
         mbs_dirdyn_loop(mbs_dirdyn, mbs_data);
 
         // request completed
-        if((mbs_dirdyn->options->tf - reset_time) > 0.5)  // arbitrary time
+        if((mbs_dirdyn->options->tf - reset_time) > actual_request.prediction_time)  // arbitrary time
         {
 
             FSM_state = SENDING_PREDICTION;
@@ -145,7 +145,6 @@ void robotran_predictor_thread::run()
     // TODO: Add a floating base computation based on foot position
     // TODO: Rotate model (mass, ...) of walkman model
     // TODO: Check position shift and zero
-    // TODO: trigger reset based on messages
 
 }
 
