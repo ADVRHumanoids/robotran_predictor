@@ -8,6 +8,8 @@
 
 #include <mbs_data.h>
 
+enum predictor_FSM_state {WAITING_REQUEST, RESETING_SIMU_STATE, PREDICTING_REQUEST, SENDING_PREDICTION};
+
 /**
  * @brief robotran_predictor control thread
  * 
@@ -21,9 +23,14 @@ private:
     
     robotran_predictor::state_input actual_state;
     robotran_predictor::request     actual_request;
+    robotran_predictor::prediction  actual_prediction;
 
     MbsData* mbs_data;
     MbsDirdyn *mbs_dirdyn;
+
+    double reset_time;
+
+    predictor_FSM_state FSM_state;
     
 public:
     

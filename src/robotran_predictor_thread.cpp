@@ -60,6 +60,14 @@ bool robotran_predictor_thread::custom_init()
         reset_model_state();
     }
 
+    // init FSM
+    FSM_state = WAITING_REQUEST;
+    reset_time = 0.;
+
+    // init prediction
+    actual_prediction.is_valid = false;
+    actual_prediction.left_knee_angle = 0.;
+
     return true;
 }
 
@@ -77,21 +85,62 @@ void robotran_predictor_thread::custom_release()
 void robotran_predictor_thread::run()
 {   
     int seq_num = 0;
-    if(state_input.getCommand(actual_state, seq_num)) {
-        //actual_state.print();
+
+    if(FSM_state == WAITING_REQUEST){
+
+        // check if new request sent
+        if(request.getCommand(actual_request, seq_num)) {
+
+            if(actual_request.process_request) {  // a request is received (with true flag)
+
+                std::cout << std::endl <<"receive new request with request status = " << actual_request.process_request << std::endl<< std::endl<< std::endl;
+
+                FSM_state = RESETING_SIMU_STATE;
+
+            }
+        }
     }
 
-    if(request.getCommand(actual_request, seq_num)) {
-        std::cout << "request status = " << actual_request.process_request << std::endl;
+    else if(FSM_state == RESETING_SIMU_STATE){
+
+        if(state_input.getCommand(actual_state, seq_num)) {
+
+            // reset the model
+            reset_time = mbs_dirdyn->options->tf;
+            reset_model_state();
+
+            FSM_state = PREDICTING_REQUEST;
+        }
+
     }
 
-    // reset the state
-    if(mbs_dirdyn->options->tf < 0.2)
-        reset_model_state();
+    else if(FSM_state == PREDICTING_REQUEST)
+    {
+        // run the simulation
+        mbs_dirdyn->options->tf += 0.005;  // arbitrary period of computation
+        mbs_dirdyn_loop(mbs_dirdyn, mbs_data);
 
-    // run the simulation
-    mbs_dirdyn->options->tf += 0.005;  // arbitrary period of computation
-    mbs_dirdyn_loop(mbs_dirdyn, mbs_data);
+        // request completed
+        if((mbs_dirdyn->options->tf - reset_time) > 0.5)  // arbitrary time
+        {
+
+            FSM_state = SENDING_PREDICTION;
+
+        }
+    }
+
+    else if(FSM_state == SENDING_PREDICTION)
+    {
+        // update prediction
+        actual_prediction.is_valid = true;
+        actual_prediction.left_knee_angle = mbs_data->q[LKneeSag_id];
+
+        prediction.sendCommand(actual_prediction);
+
+        std::cout << std::endl <<"request processed, prediction = ..." << std::endl<< std::endl<< std::endl;
+
+        FSM_state = WAITING_REQUEST;
+    }
 
     // TODO: Add a floating base computation based on foot position
     // TODO: Rotate model (mass, ...) of walkman model
