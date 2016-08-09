@@ -1,0 +1,41 @@
+<application>
+    <name>RobotranPredictorDumper</name>
+    <dependencies>
+        <port>/robotran_predictor/state_input:o</port>
+        <port>/robotran_predictor/request:o</port>
+    </dependencies>
+    <module>
+        <name>yarpdatadumper</name>
+        <parameters>--dir data_log/robot_state --name robot_state_dump --overwrite </parameters>
+        <node>localhost</node>
+        <tag>yarpdatadumper</tag>
+    </module>
+    <connection>
+        <from>/robotran_predictor/state_input:o</from>
+        <to>/robot_state_dump</to>
+        <protocol>udp</protocol>
+    </connection>
+    <module>
+        <name>yarpdatadumper</name>
+        <parameters>--dir data_log/prediction_request --name prediction_request_dump --overwrite </parameters>
+        <node>localhost</node>
+        <tag>yarpdatadumper</tag>
+    </module>
+    <connection>
+        <from>/robotran_predictor/request:o</from>
+        <to>/prediction_request_dump</to>
+        <protocol>udp</protocol>
+    </connection>
+    <module>
+        <name>yarpdatadumper</name>
+        <parameters>--dir data_log/prediction --name prediction_dump --overwrite </parameters>
+        <node>localhost</node>
+        <tag>yarpdatadumper</tag>
+    </module>
+    <connection>
+        <from>/robotran_predictor/prediction:o</from>
+        <to>/prediction_dump</to>
+        <protocol>udp</protocol>
+    </connection>
+</application>
+
